@@ -1,5 +1,6 @@
 import cv2 as cv
 from cv2 import aruco
+import cv2.typing
 import numpy as np
 import websocket
 import socketio
@@ -27,6 +28,7 @@ def run():
     param_markers = aruco.DetectorParameters()
 
     cap = cv.VideoCapture(0)
+    # cap = cv.VideoCapture('http://10.10.203.15:8080/video')
 
     # ws.run_forever()
 
@@ -46,6 +48,13 @@ def run():
                 marker_corners, MARKER_SIZE, cam_mat, dist_coef
             )
             total_markers = range(0, marker_IDs.size)
+            
+            id_car = -1
+            id_marker = -1
+            
+            tcar = None
+            tmarker = None
+            
             for ids, corners, i in zip(marker_IDs, marker_corners, total_markers):
                 cv.polylines(
                     frame, [corners.astype(np.int32)], True, (0, 255, 255), 4, cv.LINE_AA
@@ -56,6 +65,13 @@ def run():
                 top_left = corners[1].ravel()
                 bottom_right = corners[2].ravel()
                 bottom_left = corners[3].ravel()
+                
+                if ids[0] == 10:
+                    id_car = 10
+                    tcar = tVec[i][0]
+                else:
+                    id_marker = ids[0]
+                    tmarker = tVec[i][0]
 
                 # Calculate the distance
                 distance = np.sqrt(
@@ -83,8 +99,14 @@ def run():
                     2,
                     cv.LINE_AA,
                 )
-                sio.emit("vision", {'id': i, 'x': round(tVec[i][0][0],1), 'y': round(tVec[i][0][1],1), 'r': 0})
+                # id = (int)ids[0]
                 # print(ids, "  ", corners)
+        
+            if id_car == 10 and id_marker != -1:
+                tc = tcar - tmarker 
+                print(f"x:{round(tc[0], 5)} y: {round(tc[0],5)} ")
+                # sio.emit("vision", {'id': int(ids[0]), 'x': round(tc[0],5), 'y': round(tc[1],5), 'r': 0})
+        
         cv.imshow("frame", frame)
         key = cv.waitKey(1)
         if key == ord("q"):

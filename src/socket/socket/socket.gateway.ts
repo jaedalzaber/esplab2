@@ -8,7 +8,11 @@ import { Vector } from 'vector-math';
 
 class Path{
 	id: number;
-	points: [{x: number, y: number, r: number}]
+	points: [{
+		x: number, 
+		y: number, 
+		r: number
+	}]
 }
 
 @WebSocketGateway()
@@ -39,15 +43,47 @@ export class SocketGateway implements OnGatewayConnection {
 			this.lastPath = payload.path;
 	}
 
+	@SubscribeMessage('run')
+	handleStart(client: Socket, payload: { path: Path }) {
+		this.logger.log('run');
+		this.socketService.connectedClients.get('ml').send({"type":'run'});
+
+		var carPos = new Vector(this.localizeService.car.i, this.localizeService.car.j, this.localizeService.car.k);
+		var targetPos = new Vector();
+
+		this.socketService.connectedClients.get('ml').send(
+			{	
+				"type":'run', 
+				"xc": carPos.i, 
+				"yc": carPos.j, 
+				"rc": carPos.k,
+				"xt": targetPos.i, 
+				"yt": targetPos.j, 
+				"rt": targetPos.k
+			}
+			);
+	}
+
 	// { type: string, id?: number, x: number, y: number, r: number }
 
 	@SubscribeMessage('vision')
 	handlePosition(client: Socket, payload: { id: number, x: number, y: number, r: number }) {
 		const clientId: string = this.id(client);
-
-		if (payload.id == 0) {
+		if(!this.socketService.connectedClients.get('ml')) return;
+		if (payload.id == 9) {
+			this.localizeService.markers[0] = new Vector(payload.x, payload.y, payload.r)
+		}
+		if (payload.id == 10) {
 			this.localizeService.car = new Vector(payload.x, payload.y, payload.r)
-			this.logger.log(this.localizeService.car.i);
+			this.socketService.connectedClients.get('ml').send(
+				{"type":'restart', 
+					"x": this.localizeService.car.i, 
+					"y": this.localizeService.car.j, 
+					"r": this.localizeService.car.k}
+				);
+		}
+		if (payload.id == 11) {
+			this.localizeService.markers[1] = new Vector(payload.x, payload.y, payload.r)
 		}
 		else if(payload.id == 1) {
 			this.localizeService.car = new Vector(payload.x, payload.y, payload.r)
@@ -55,8 +91,9 @@ export class SocketGateway implements OnGatewayConnection {
 		else if(payload.id == 2) {
 			this.localizeService.car = new Vector(payload.x, payload.y, payload.r)
 		}
-		else if(this.localizeService.markers[payload.id]){
+		else if(this.localizeService.markers[payload.id]) {
 			this.localizeService.markers[payload.id] = new Vector(payload.x, payload.y, payload.r)
 		}
+		
 	}
 }
